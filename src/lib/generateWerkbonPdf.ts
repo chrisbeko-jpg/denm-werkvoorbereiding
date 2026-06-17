@@ -7,13 +7,13 @@ const PAGE_HEIGHT = 297;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const PAGE_BOTTOM = PAGE_HEIGHT - MARGIN;
 const LINE_HEIGHT = 4.2;
-const SECTION_GAP = 4;
-const SECTION_TITLE_H = 8;
+const SECTION_GAP = 3;
+const SECTION_TITLE_H = 7;
 const BOX_PADDING = 4;
-const WERKZAAMHEDEN_MAX_H = PAGE_HEIGHT * 0.6;
-const AANDACHT_MAX_H = 45;
-const VAKMAN_SECTION_H = 72;
-const PHOTO_SECTION_H = 32;
+const WERKZAAMHEDEN_MAX_H = PAGE_HEIGHT * 0.75;
+const AANDACHT_MAX_H = 32;
+const VAKMAN_SECTION_H = 50;
+const PHOTO_SECTION_H = 28;
 const LOGO_PATH = "/denm-logo.jpg";
 
 interface LayoutState {
@@ -56,12 +56,12 @@ function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
   doc.setFillColor(245, 245, 245);
   doc.rect(MARGIN, y, CONTENT_WIDTH, SECTION_TITLE_H, "F");
   doc.setDrawColor(70, 70, 70);
-  doc.setLineWidth(0.25);
+  doc.setLineWidth(0.2);
   doc.rect(MARGIN, y, CONTENT_WIDTH, SECTION_TITLE_H);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(25, 25, 25);
-  doc.text(title, MARGIN + 3, y + 5.5);
+  doc.text(title, MARGIN + 3, y + 5);
   return y + SECTION_TITLE_H + 2;
 }
 
@@ -80,7 +80,7 @@ function drawTextBox(
   boxHeight: number,
   placeholder?: string
 ): number {
-  doc.setDrawColor(190, 190, 190);
+  doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
   doc.rect(MARGIN, y, CONTENT_WIDTH, boxHeight);
 
@@ -105,20 +105,20 @@ function drawHeader(state: LayoutState, logoDataUrl: string | null): void {
 
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, "JPEG", MARGIN, y, 36, 14);
-      y += 16;
+      doc.addImage(logoDataUrl, "JPEG", MARGIN, y, 32, 12);
+      y += 14;
     } catch {
       y += 2;
     }
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
   doc.text("Werkbon / Werkvoorbereiding", MARGIN, y + 3);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
   const dateStr = new Date().toLocaleDateString("nl-NL", {
     day: "2-digit",
@@ -127,9 +127,9 @@ function drawHeader(state: LayoutState, logoDataUrl: string | null): void {
   });
   doc.text(dateStr, MARGIN + CONTENT_WIDTH - doc.getTextWidth(dateStr), y + 3);
 
-  y += 8;
+  y += 7;
   doc.setDrawColor(50, 50, 50);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.25);
   doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
 
   state.y = y + SECTION_GAP;
@@ -139,11 +139,11 @@ function drawCustomerBlock(state: LayoutState, data: WerkbonData): void {
   const { doc } = state;
   let y = drawSectionTitle(doc, "Klantgegevens", state.y);
 
-  const rowH = 5.5;
-  const labelW = 22;
+  const rowH = 5;
+  const labelW = 20;
   const midX = MARGIN + CONTENT_WIDTH / 2;
 
-  const drawCompactField = (label: string, value: string, x: number, fieldY: number, maxW: number) => {
+  const drawField = (label: string, value: string, x: number, fieldY: number, maxW: number) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     doc.setTextColor(80, 80, 80);
@@ -157,17 +157,17 @@ function drawCustomerBlock(state: LayoutState, data: WerkbonData): void {
     return Math.max(rowH, lines.length * LINE_HEIGHT);
   };
 
-  let h = drawCompactField("Naam:", data.klantNaam, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
-  y += h + 1;
+  let h = drawField("Naam:", data.klantNaam, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
+  y += h;
 
-  h = drawCompactField("Adres:", data.klantAdres, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
-  y += h + 1;
+  h = drawField("Adres:", data.klantAdres, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
+  y += h;
 
-  drawCompactField("Telefoon:", data.klantTelefoon, MARGIN + 2, y + 3, CONTENT_WIDTH / 2 - 4);
-  drawCompactField("E-mail:", data.klantEmail, midX, y + 3, CONTENT_WIDTH / 2 - 4);
-  y += rowH + 2;
+  drawField("Tel:", data.klantTelefoon, MARGIN + 2, y + 3, CONTENT_WIDTH / 2 - 4);
+  drawField("E-mail:", data.klantEmail, midX, y + 3, CONTENT_WIDTH / 2 - 4);
+  y += rowH + 1;
 
-  state.y = y + 2;
+  state.y = y + 1;
 }
 
 function drawOverflowTextSection(
@@ -180,7 +180,7 @@ function drawOverflowTextSection(
 ): void {
   const { doc } = state;
   const allLines = measureTextBlock(doc, text, CONTENT_WIDTH);
-  const minEmptyHeight = compact ? 12 : 16;
+  const minEmptyHeight = compact ? 10 : 14;
 
   if (allLines.length === 0) {
     ensureSpace(state, SECTION_TITLE_H + minEmptyHeight);
@@ -218,20 +218,20 @@ function drawOverflowTextSection(
 
 function drawPhotosSection(state: LayoutState, photos: UploadedPhoto[]): void {
   const { doc } = state;
-  const sectionH = photos.length > 0 ? PHOTO_SECTION_H : 12;
 
-  ensureSpace(state, SECTION_TITLE_H + sectionH);
+  ensureSpace(state, SECTION_TITLE_H + PHOTO_SECTION_H);
   state.y = drawSectionTitle(doc, "Foto's van opname", state.y);
 
   if (photos.length === 0) return;
 
   const gap = 2;
   const thumbW = (CONTENT_WIDTH - gap * (photos.length - 1)) / photos.length;
-  const thumbH = 22;
+  const thumbH = 20;
   let x = MARGIN;
 
   for (const photo of photos) {
     doc.setDrawColor(160, 160, 160);
+    doc.setLineWidth(0.2);
     doc.rect(x, state.y, thumbW, thumbH);
     try {
       const format = photo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
@@ -253,7 +253,7 @@ function drawGridTable(
   colWidths: number[],
   rowHeights: number[],
   headers: string[],
-  cellRenderer: (col: number, row: number, cellX: number, cellY: number, cellW: number, cellH: number) => void
+  cellRenderer?: (col: number, row: number, cellX: number, cellY: number, cellW: number, cellH: number) => void
 ): number {
   const totalW = colWidths.reduce((a, b) => a + b, 0);
   const totalH = rowHeights.reduce((a, b) => a + b, 0);
@@ -276,23 +276,25 @@ function drawGridTable(
 
   if (headers.length > 0) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(40, 40, 40);
     colX = x;
     for (let c = 0; c < headers.length; c++) {
-      doc.text(headers[c], colX + 2, y + 4.5);
+      doc.text(headers[c], colX + 2, y + 3.5);
       colX += colWidths[c];
     }
   }
 
-  rowY = y + rowHeights[0];
-  for (let r = 1; r < rowHeights.length; r++) {
-    colX = x;
-    for (let c = 0; c < colWidths.length; c++) {
-      cellRenderer(c, r - 1, colX, rowY, colWidths[c], rowHeights[r]);
-      colX += colWidths[c];
+  if (cellRenderer) {
+    rowY = y + rowHeights[0];
+    for (let r = 1; r < rowHeights.length; r++) {
+      colX = x;
+      for (let c = 0; c < colWidths.length; c++) {
+        cellRenderer(c, r - 1, colX, rowY, colWidths[c], rowHeights[r]);
+        colX += colWidths[c];
+      }
+      rowY += rowHeights[r];
     }
-    rowY += rowHeights[r];
   }
 
   return y + totalH;
@@ -303,64 +305,40 @@ function drawVakmanSection(state: LayoutState): void {
   const { doc } = state;
   let y = drawSectionTitle(doc, "In te vullen door vakman", state.y);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(30, 30, 30);
-  doc.text("Projecturen:", MARGIN + 2, y + 3);
-  y += 5;
+  const quarterW = CONTENT_WIDTH / 4;
+  y = drawGridTable(
+    doc,
+    MARGIN,
+    y,
+    [quarterW, quarterW, quarterW, quarterW],
+    [5, 5, 5, 5],
+    ["Datum", "Uren", "Datum", "Uren"]
+  );
 
-  const tableX = MARGIN;
-  const colW = [62, 42, CONTENT_WIDTH - 104];
-  const rowH = [5.5, 6, 6, 6];
+  y += 3;
 
-  y = drawGridTable(doc, tableX, y, colW, rowH, ["Datum", "Aantal uur", "Paraaf"], (col, _row, cellX, cellY, cellW, cellH) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(60, 60, 60);
-    const lineY = cellY + cellH - 2;
-
-    if (col === 0) {
-      doc.text("../../....", cellX + 2, cellY + 4);
-      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
-    } else if (col === 1) {
-      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
-    } else {
-      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
-    }
-  });
-
-  y += 4;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("Extra materialen gekocht:", MARGIN + 2, y + 3);
-  y += 5;
-
-  const matColW = [CONTENT_WIDTH - 38, 38];
-  const matRowH = [5.5, 5.5, 5.5, 5.5, 5.5];
-
-  y = drawGridTable(doc, MARGIN, y, matColW, matRowH, ["Omschrijving", "Bedrag"], (col, row, cellX, cellY, cellW, cellH) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    const lineY = cellY + cellH - 2;
-
-    if (row === 3) {
-      doc.setFont("helvetica", "bold");
-      doc.text(col === 0 ? "Totaal" : "€", cellX + 2, cellY + 4);
-      if (col === 1) {
-        doc.line(cellX + 8, lineY, cellX + cellW - 2, lineY);
+  y = drawGridTable(
+    doc,
+    MARGIN,
+    y,
+    [CONTENT_WIDTH - 30, 30],
+    [5, 5, 5, 5, 5],
+    ["Omschrijving", "Bedrag"],
+    (col, row, cellX, cellY) => {
+      if (row === 3 && col === 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(30, 30, 30);
+        doc.text("Totaal", cellX + 2, cellY + 3.5);
       }
-    } else {
-      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
-      if (col === 1) doc.text("€", cellX + 2, cellY + 4);
     }
-  });
+  );
 
-  y += 5;
+  y += 3;
 
-  const sigGap = 4;
+  const sigGap = 3;
   const sigW = (CONTENT_WIDTH - sigGap) / 2;
-  const sigH = 26;
+  const sigH = 17;
 
   const drawSigBox = (boxX: number, title: string) => {
     doc.setDrawColor(120, 120, 120);
@@ -368,17 +346,17 @@ function drawVakmanSection(state: LayoutState): void {
     doc.rect(boxX, y, sigW, sigH);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(30, 30, 30);
-    doc.text(title, boxX + 3, y + 5);
+    doc.text(title, boxX + 2, y + 4);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text("Naam:", boxX + 3, y + 11);
-    doc.line(boxX + 16, y + 11.5, boxX + sigW - 3, y + 11.5);
+    doc.setFontSize(7);
+    doc.text("Naam", boxX + 2, y + 8.5);
+    doc.line(boxX + 13, y + 9, boxX + sigW - 2, y + 9);
 
-    doc.text("Handtekening:", boxX + 3, y + 19);
-    doc.line(boxX + 28, y + 19.5, boxX + sigW - 3, y + 19.5);
+    doc.text("Handtekening", boxX + 2, y + 13.5);
+    doc.line(boxX + 24, y + 14, boxX + sigW - 2, y + 14);
   };
 
   drawSigBox(MARGIN, "Klant");
@@ -389,11 +367,8 @@ function drawVakmanSection(state: LayoutState): void {
 
 function shouldMovePhotosToNewPage(state: LayoutState, hasPhotos: boolean): boolean {
   if (!hasPhotos) return false;
-
   const space = remainingSpace(state);
-  const photosOnly = PHOTO_SECTION_H + SECTION_TITLE_H + 4;
-
-  return space < photosOnly + 20;
+  return space < PHOTO_SECTION_H + SECTION_TITLE_H + 16;
 }
 
 function buildFilename(klantNaam: string): string {
@@ -419,7 +394,7 @@ export async function generateWerkbonPdf(
 
   const werkMaxOnFirstPage = Math.min(
     WERKZAAMHEDEN_MAX_H,
-    remainingSpace(state) - SECTION_TITLE_H - 20
+    remainingSpace(state) - SECTION_TITLE_H - 12
   );
 
   drawOverflowTextSection(
