@@ -6,13 +6,14 @@ const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const PAGE_BOTTOM = PAGE_HEIGHT - MARGIN;
-const LINE_HEIGHT = 4.5;
-const SECTION_GAP = 5;
-const SECTION_TITLE_H = 9;
-const BOX_PADDING = 5;
-const WERKZAAMHEDEN_MAX_H = PAGE_HEIGHT * 0.5;
-const MONTEUR_SECTION_H = 94;
-const PHOTO_SECTION_H = 36;
+const LINE_HEIGHT = 4.2;
+const SECTION_GAP = 4;
+const SECTION_TITLE_H = 8;
+const BOX_PADDING = 4;
+const WERKZAAMHEDEN_MAX_H = PAGE_HEIGHT * 0.6;
+const AANDACHT_MAX_H = 45;
+const VAKMAN_SECTION_H = 72;
+const PHOTO_SECTION_H = 32;
 const LOGO_PATH = "/denm-logo.jpg";
 
 interface LayoutState {
@@ -55,12 +56,12 @@ function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
   doc.setFillColor(245, 245, 245);
   doc.rect(MARGIN, y, CONTENT_WIDTH, SECTION_TITLE_H, "F");
   doc.setDrawColor(70, 70, 70);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.25);
   doc.rect(MARGIN, y, CONTENT_WIDTH, SECTION_TITLE_H);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(25, 25, 25);
-  doc.text(title, MARGIN + 3, y + 6);
+  doc.text(title, MARGIN + 3, y + 5.5);
   return y + SECTION_TITLE_H + 2;
 }
 
@@ -104,33 +105,31 @@ function drawHeader(state: LayoutState, logoDataUrl: string | null): void {
 
   if (logoDataUrl) {
     try {
-      const logoH = 16;
-      const logoW = 40;
-      doc.addImage(logoDataUrl, "JPEG", MARGIN, y, logoW, logoH);
-      y += logoH + 4;
+      doc.addImage(logoDataUrl, "JPEG", MARGIN, y, 36, 14);
+      y += 16;
     } catch {
       y += 2;
     }
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(20, 20, 20);
-  doc.text("Werkbon / Werkvoorbereiding", MARGIN, y + 4);
+  doc.text("Werkbon / Werkvoorbereiding", MARGIN, y + 3);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(100, 100, 100);
   const dateStr = new Date().toLocaleDateString("nl-NL", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  doc.text(dateStr, MARGIN + CONTENT_WIDTH - doc.getTextWidth(dateStr), y + 4);
+  doc.text(dateStr, MARGIN + CONTENT_WIDTH - doc.getTextWidth(dateStr), y + 3);
 
-  y += 10;
+  y += 8;
   doc.setDrawColor(50, 50, 50);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.35);
   doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
 
   state.y = y + SECTION_GAP;
@@ -140,28 +139,35 @@ function drawCustomerBlock(state: LayoutState, data: WerkbonData): void {
   const { doc } = state;
   let y = drawSectionTitle(doc, "Klantgegevens", state.y);
 
-  const fields = [
-    ["Naam:", data.klantNaam],
-    ["Adres:", data.klantAdres],
-    ["Telefoon:", data.klantTelefoon],
-    ["E-mail:", data.klantEmail],
-  ] as const;
+  const rowH = 5.5;
+  const labelW = 22;
+  const midX = MARGIN + CONTENT_WIDTH / 2;
 
-  for (const [label, value] of fields) {
+  const drawCompactField = (label: string, value: string, x: number, fieldY: number, maxW: number) => {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(70, 70, 70);
-    doc.text(label, MARGIN + 2, y + 3);
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text(label, x, fieldY);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(20, 20, 20);
-    const lines = doc.splitTextToSize(value.trim() || "—", CONTENT_WIDTH - 32);
-    doc.text(lines, MARGIN + 28, y + 3);
-    y += Math.max(lines.length * LINE_HEIGHT, LINE_HEIGHT) + 2;
-  }
+    const lines = doc.splitTextToSize(value.trim() || "—", maxW - labelW);
+    doc.text(lines, x + labelW, fieldY);
+    return Math.max(rowH, lines.length * LINE_HEIGHT);
+  };
 
-  state.y = y + SECTION_GAP;
+  let h = drawCompactField("Naam:", data.klantNaam, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
+  y += h + 1;
+
+  h = drawCompactField("Adres:", data.klantAdres, MARGIN + 2, y + 3, CONTENT_WIDTH - 4);
+  y += h + 1;
+
+  drawCompactField("Telefoon:", data.klantTelefoon, MARGIN + 2, y + 3, CONTENT_WIDTH / 2 - 4);
+  drawCompactField("E-mail:", data.klantEmail, midX, y + 3, CONTENT_WIDTH / 2 - 4);
+  y += rowH + 2;
+
+  state.y = y + 2;
 }
 
 function drawOverflowTextSection(
@@ -169,15 +175,17 @@ function drawOverflowTextSection(
   title: string,
   text: string,
   placeholder: string,
-  maxFirstPageHeight?: number
+  maxFirstPageHeight?: number,
+  compact = false
 ): void {
   const { doc } = state;
   const allLines = measureTextBlock(doc, text, CONTENT_WIDTH);
+  const minEmptyHeight = compact ? 12 : 16;
 
   if (allLines.length === 0) {
-    ensureSpace(state, SECTION_TITLE_H + 20);
+    ensureSpace(state, SECTION_TITLE_H + minEmptyHeight);
     state.y = drawSectionTitle(doc, title, state.y);
-    state.y = drawTextBox(state.doc, [], state.y, 16, placeholder) + SECTION_GAP;
+    state.y = drawTextBox(state.doc, [], state.y, minEmptyHeight, placeholder) + SECTION_GAP;
     return;
   }
 
@@ -187,9 +195,13 @@ function drawOverflowTextSection(
   while (lineIndex < allLines.length) {
     const sectionTitle = isFirst ? title : `${title} (vervolg)`;
     const titleH = SECTION_TITLE_H + 2;
-    const available = isFirst && maxFirstPageHeight
-      ? Math.min(remainingSpace(state) - titleH, maxFirstPageHeight)
-      : remainingSpace(state) - titleH;
+    let available = remainingSpace(state) - titleH;
+
+    if (isFirst && maxFirstPageHeight) {
+      available = Math.min(available, maxFirstPageHeight);
+    } else if (compact && isFirst) {
+      available = Math.min(available, AANDACHT_MAX_H);
+    }
 
     const maxLines = Math.max(1, Math.floor((available - BOX_PADDING * 2) / LINE_HEIGHT));
     const chunk = allLines.slice(lineIndex, lineIndex + maxLines);
@@ -206,23 +218,16 @@ function drawOverflowTextSection(
 
 function drawPhotosSection(state: LayoutState, photos: UploadedPhoto[]): void {
   const { doc } = state;
-  const sectionH = photos.length > 0 ? PHOTO_SECTION_H : 18;
+  const sectionH = photos.length > 0 ? PHOTO_SECTION_H : 12;
 
   ensureSpace(state, SECTION_TITLE_H + sectionH);
   state.y = drawSectionTitle(doc, "Foto's van opname", state.y);
 
-  if (photos.length === 0) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    doc.setTextColor(130, 130, 130);
-    doc.text("Geen foto's toegevoegd", MARGIN + 3, state.y + 5);
-    state.y += 14;
-    return;
-  }
+  if (photos.length === 0) return;
 
   const gap = 2;
   const thumbW = (CONTENT_WIDTH - gap * (photos.length - 1)) / photos.length;
-  const thumbH = 26;
+  const thumbH = 22;
   let x = MARGIN;
 
   for (const photo of photos) {
@@ -241,80 +246,154 @@ function drawPhotosSection(state: LayoutState, photos: UploadedPhoto[]): void {
   state.y += thumbH + SECTION_GAP;
 }
 
-function drawFillLine(doc: jsPDF, label: string, y: number): number {
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 30, 30);
-  doc.text(label, MARGIN + 2, y);
+function drawGridTable(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  colWidths: number[],
+  rowHeights: number[],
+  headers: string[],
+  cellRenderer: (col: number, row: number, cellX: number, cellY: number, cellW: number, cellH: number) => void
+): number {
+  const totalW = colWidths.reduce((a, b) => a + b, 0);
+  const totalH = rowHeights.reduce((a, b) => a + b, 0);
 
-  const lineStart = MARGIN + 2 + doc.getTextWidth(label) + 2;
-  doc.setDrawColor(110, 110, 110);
-  doc.line(lineStart, y + 0.8, MARGIN + CONTENT_WIDTH - 2, y + 0.8);
-  return y + 7;
+  doc.setDrawColor(120, 120, 120);
+  doc.setLineWidth(0.2);
+  doc.rect(x, y, totalW, totalH);
+
+  let colX = x;
+  for (let c = 0; c < colWidths.length - 1; c++) {
+    colX += colWidths[c];
+    doc.line(colX, y, colX, y + totalH);
+  }
+
+  let rowY = y;
+  for (let r = 0; r < rowHeights.length - 1; r++) {
+    rowY += rowHeights[r];
+    doc.line(x, rowY, x + totalW, rowY);
+  }
+
+  if (headers.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(40, 40, 40);
+    colX = x;
+    for (let c = 0; c < headers.length; c++) {
+      doc.text(headers[c], colX + 2, y + 4.5);
+      colX += colWidths[c];
+    }
+  }
+
+  rowY = y + rowHeights[0];
+  for (let r = 1; r < rowHeights.length; r++) {
+    colX = x;
+    for (let c = 0; c < colWidths.length; c++) {
+      cellRenderer(c, r - 1, colX, rowY, colWidths[c], rowHeights[r]);
+      colX += colWidths[c];
+    }
+    rowY += rowHeights[r];
+  }
+
+  return y + totalH;
 }
 
-function drawMonteurSection(state: LayoutState): void {
-  ensureSpace(state, MONTEUR_SECTION_H);
+function drawVakmanSection(state: LayoutState): void {
+  ensureSpace(state, VAKMAN_SECTION_H);
   const { doc } = state;
-  let y = drawSectionTitle(doc, "In te vullen door monteur", state.y);
-
-  y = drawFillLine(doc, "Uren besteed:", y);
-  y += 1;
+  let y = drawSectionTitle(doc, "In te vullen door vakman", state.y);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text("Extra materialen gekocht:", MARGIN + 2, y);
+  doc.setFontSize(8);
+  doc.setTextColor(30, 30, 30);
+  doc.text("Projecturen:", MARGIN + 2, y + 3);
   y += 5;
 
-  for (let i = 1; i <= 4; i++) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text(`${i}.`, MARGIN + 2, y);
-    const descStart = MARGIN + 8;
-    const euroLabel = "€";
-    const euroX = MARGIN + CONTENT_WIDTH - 22;
-    doc.line(descStart, y + 0.8, euroX - 4, y + 0.8);
-    doc.text(euroLabel, euroX, y);
-    doc.line(euroX + doc.getTextWidth(euroLabel) + 1, y + 0.8, MARGIN + CONTENT_WIDTH - 2, y + 0.8);
-    y += 6.5;
-  }
+  const tableX = MARGIN;
+  const colW = [62, 42, CONTENT_WIDTH - 104];
+  const rowH = [5.5, 6, 6, 6];
 
-  y += 1;
-  y = drawFillLine(doc, "Totaal: €", y);
+  y = drawGridTable(doc, tableX, y, colW, rowH, ["Datum", "Aantal uur", "Paraaf"], (col, _row, cellX, cellY, cellW, cellH) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(60, 60, 60);
+    const lineY = cellY + cellH - 2;
+
+    if (col === 0) {
+      doc.text("../../....", cellX + 2, cellY + 4);
+      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
+    } else if (col === 1) {
+      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
+    } else {
+      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
+    }
+  });
+
   y += 4;
 
-  doc.setDrawColor(80, 80, 80);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
-  y += 6;
-
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text("Handtekeningen", MARGIN + 2, y);
-  y += 6;
+  doc.setFontSize(8);
+  doc.text("Extra materialen gekocht:", MARGIN + 2, y + 3);
+  y += 5;
 
-  for (const label of [
-    "Naam klant:",
-    "Handtekening klant:",
-    "Naam uitvoerder:",
-    "Handtekening uitvoerder:",
-  ]) {
-    y = drawFillLine(doc, label, y);
-  }
+  const matColW = [CONTENT_WIDTH - 38, 38];
+  const matRowH = [5.5, 5.5, 5.5, 5.5, 5.5];
 
-  state.y = y;
+  y = drawGridTable(doc, MARGIN, y, matColW, matRowH, ["Omschrijving", "Bedrag"], (col, row, cellX, cellY, cellW, cellH) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const lineY = cellY + cellH - 2;
+
+    if (row === 3) {
+      doc.setFont("helvetica", "bold");
+      doc.text(col === 0 ? "Totaal" : "€", cellX + 2, cellY + 4);
+      if (col === 1) {
+        doc.line(cellX + 8, lineY, cellX + cellW - 2, lineY);
+      }
+    } else {
+      doc.line(cellX + 2, lineY, cellX + cellW - 2, lineY);
+      if (col === 1) doc.text("€", cellX + 2, cellY + 4);
+    }
+  });
+
+  y += 5;
+
+  const sigGap = 4;
+  const sigW = (CONTENT_WIDTH - sigGap) / 2;
+  const sigH = 26;
+
+  const drawSigBox = (boxX: number, title: string) => {
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.2);
+    doc.rect(boxX, y, sigW, sigH);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title, boxX + 3, y + 5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("Naam:", boxX + 3, y + 11);
+    doc.line(boxX + 16, y + 11.5, boxX + sigW - 3, y + 11.5);
+
+    doc.text("Handtekening:", boxX + 3, y + 19);
+    doc.line(boxX + 28, y + 19.5, boxX + sigW - 3, y + 19.5);
+  };
+
+  drawSigBox(MARGIN, "Klant");
+  drawSigBox(MARGIN + sigW + sigGap, "Uitvoerder");
+
+  state.y = y + sigH + 2;
 }
 
-function planPhotoPlacement(state: LayoutState, hasPhotos: boolean): "current" | "new-page" {
-  if (!hasPhotos) return "current";
+function shouldMovePhotosToNewPage(state: LayoutState, hasPhotos: boolean): boolean {
+  if (!hasPhotos) return false;
 
-  const spaceAfterContent = remainingSpace(state);
-  const needsWithMonteur = PHOTO_SECTION_H + SECTION_TITLE_H + MONTEUR_SECTION_H;
+  const space = remainingSpace(state);
+  const photosOnly = PHOTO_SECTION_H + SECTION_TITLE_H + 4;
 
-  if (spaceAfterContent >= needsWithMonteur) return "current";
-  if (spaceAfterContent >= PHOTO_SECTION_H + SECTION_TITLE_H + 10) return "current";
-
-  return "new-page";
+  return space < photosOnly + 20;
 }
 
 function buildFilename(klantNaam: string): string {
@@ -340,8 +419,9 @@ export async function generateWerkbonPdf(
 
   const werkMaxOnFirstPage = Math.min(
     WERKZAAMHEDEN_MAX_H,
-    remainingSpace(state) - SECTION_TITLE_H - 30
+    remainingSpace(state) - SECTION_TITLE_H - 20
   );
+
   drawOverflowTextSection(
     state,
     "Werkzaamheden / voorbereiding",
@@ -354,11 +434,12 @@ export async function generateWerkbonPdf(
     state,
     "Aandachtspunten / Let op!",
     data.aandachtspunten,
-    "Geen aandachtspunten"
+    "Geen aandachtspunten",
+    undefined,
+    true
   );
 
-  const photoPlacement = planPhotoPlacement(state, photos.length > 0);
-  if (photoPlacement === "new-page") {
+  if (shouldMovePhotosToNewPage(state, photos.length > 0)) {
     newPage(state);
   }
 
@@ -366,10 +447,10 @@ export async function generateWerkbonPdf(
     drawPhotosSection(state, photos);
   }
 
-  if (remainingSpace(state) < MONTEUR_SECTION_H) {
+  if (remainingSpace(state) < VAKMAN_SECTION_H) {
     newPage(state);
   }
 
-  drawMonteurSection(state);
+  drawVakmanSection(state);
   doc.save(buildFilename(data.klantNaam));
 }
